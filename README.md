@@ -43,9 +43,9 @@ build/task3_windmill
 
 ```text
 resources/test_image.jpg  # 郁金香图片，已包含
-resources/task_2.mp4      # 合成旋转视频，需使用老师发放的原文件
-resources/task_3.mp4      # 小能量机关，需使用老师发放的原文件
-resources/task_4.mp4      # 大能量机关，需使用老师发放的原文件
+resources/task_2.mp4      # 合成旋转视频：960×720，60 FPS，1440 帧
+resources/task_3.mp4      # 小能量机关：1440×1080，30 FPS，796 帧
+resources/task_4.mp4      # 大能量机关：1440×1080，30 FPS，1800 帧
 ```
 
 原始视频应保持文件名不变。程序会读取视频的实际分辨率、FPS 和帧数，不会通过删帧或改变播放速度掩盖识别问题。
@@ -91,6 +91,12 @@ omega(t) = b + A sin(Omega t + phi)
 
 在 `Omega > 0` 的区间内搜索频率；固定频率时将正弦、余弦项转为线性最小二乘，最后恢复 `A` 和 `phi`。仅接受 `A > 0`、`b > A` 的解，相位归一化到 `[-pi, pi)`。参数、角速度 RMSE、有效样本数和帧范围写入 [任务 2 结果说明](result/task2_fit_result.md)。
 
+实际拟合结果为 `A=0.54793757 rad/s`、`b=1.35020479 rad/s`、`Omega=1.64969867 rad/s`、`phi=0.70437656 rad`，角速度 RMSE 为 `0.00567970 rad/s`，有效样本覆盖第 0–1439 帧。
+
+![任务 2 观测与拟合对比](result/task2_fit/fit_comparison.png)
+
+![任务 2 拟合残差](result/task2_fit/residuals.png)
+
 ### 任务 3：真实能量机关识别与稳定跟踪
 
 同一程序通过输入路径处理两个视频：
@@ -104,6 +110,7 @@ omega(t) = b + A sin(Omega t + phi)
 - 扇叶关联同时考虑相对中心角度、旋转半径和上一帧位置，不使用轮廓列表顺序作为 ID。
 - 目标短时丢失时保留 ID 并显示 `lost`；连续丢失 18 帧后才允许重选。
 - 输出保留完整帧序列和输入 FPS，并显示中心、扇叶圆、两中心连线、目标 ID 与状态。
+- `task_3.mp4` 输出 796/796 帧，`task_4.mp4` 输出 1800/1800 帧；逐帧日志未发现相邻 `detected` 帧的无理由 ID 跳变。
 
 详细规则和实际结果见 [任务 3 跟踪说明](result/task3_tracking_result.md)。
 
@@ -137,4 +144,4 @@ omega(t) = b + A sin(Omega t + phi)
 ctest --test-dir build --output-on-failure
 ```
 
-GitHub Actions 会在 Ubuntu 22.04 上安装 OpenCV、配置并构建全部三个程序，然后运行任务 1 测试。任务 2 和任务 3 的结果必须使用老师发放的视频生成，仓库不会填写虚构参数或伪造视频结果。
+GitHub Actions 会在 Ubuntu 22.04 上安装 OpenCV、配置并构建全部三个程序，然后运行任务 1 测试。任务 2 和任务 3 的参数、图表、逐帧日志和视频均由本仓库程序对老师发放的三个原始视频实际运行生成，不是占位或手工填写结果。

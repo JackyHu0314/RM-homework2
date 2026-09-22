@@ -1,0 +1,11 @@
+input=resources/task_3.mp4
+width=1440
+height=1080
+fps=30
+reported_input_frames=796
+written_frames=796
+detected_frames=555
+lost_frames=241
+lost_tolerance_frames=12
+reselect_after_frames=18
+reselect_count=2

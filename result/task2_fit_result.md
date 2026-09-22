@@ -1,10 +1,25 @@
 # 任务 2：合成旋转视频参数拟合
 
-> 等待老师发放的 `resources/task_2.mp4`。程序完成真实视频处理后会用估计参数、RMSE、有效样本数和参与计算的帧范围覆盖本文件；当前不填写虚构数据。
+## 方法
 
-运行命令：
+通过 HSV 区间 `H=[78,105], S=[80,255], V=[80,255]` 提取青色目标，以画面中心为旋转中心，按 `atan2(cy-y, x-cx)` 计算并展开角度。对中心差分得到的角速度做 11 帧移动平均，再对频率进行一维搜索；固定频率时使用线性最小二乘求解常数项、正弦项和余弦项。
 
-```bash
-./build/task2_fit resources/task_2.mp4 result/task2_fit
-```
+约束为 `A > 0`、`b > A`、`Omega > 0`，相位归一化到 `[-pi, pi)`。
 
+## 估计结果
+
+- A = 0.54793757 rad/s
+- b = 1.35020479 rad/s
+- Omega = 1.64969867 rad/s
+- phi = 0.70437656 rad
+- 角速度 RMSE = 0.00567970 rad/s
+- 有效样本数 = 1440
+- 参与计算帧范围 = 0 - 1439
+- 时间原点 = 视频第 0 帧
+
+## 结果文件
+
+- [跟踪标注视频](task2_fit/tracking_overlay.mp4)
+- [观测与拟合对比](task2_fit/fit_comparison.png)
+- [角速度曲线](task2_fit/angular_velocity.png)
+- [残差曲线](task2_fit/residuals.png)
