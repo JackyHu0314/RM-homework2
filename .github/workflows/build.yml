@@ -1,0 +1,37 @@
+name: Ubuntu 22.04 OpenCV Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-task1:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ libopencv-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Test task 1
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Generate task 1 results
+        run: ./build/task1_image resources/test_image.jpg result/task1_images
+
+      - name: Upload task 1 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: task1-images
+          path: result/task1_images/
+
