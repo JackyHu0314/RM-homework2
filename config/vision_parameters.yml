@@ -19,6 +19,11 @@ task2:
   min_value: 80
   angular_speed_smoothing_window: 11
 task3:
+  warm_h_low: 0
+  warm_h_high: 35
+  red_wrap_h_low: 165
+  min_saturation: 90
+  min_value: 70
+  min_local_support_area: 1800.0
   lost_tolerance_frames: 12
   reselect_after_frames: 18
-

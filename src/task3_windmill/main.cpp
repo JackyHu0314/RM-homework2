@@ -31,13 +31,13 @@ struct TrackerState {
 };
 
 cv::Mat makeColorMask(const cv::Mat& frame) {
-    cv::Mat hsv, redLow, redHigh, blue, mask;
+    cv::Mat hsv, warmLow, redHigh, mask;
     cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-    cv::inRange(hsv, cv::Scalar(0, 90, 80), cv::Scalar(15, 255, 255), redLow);
-    cv::inRange(hsv, cv::Scalar(160, 90, 80), cv::Scalar(179, 255, 255), redHigh);
-    cv::inRange(hsv, cv::Scalar(85, 80, 70), cv::Scalar(135, 255, 255), blue);
-    cv::bitwise_or(redLow, redHigh, mask);
-    cv::bitwise_or(mask, blue, mask);
+    // The supplied videos use red/orange/yellow illumination.  Keeping a warm
+    // hue mask avoids cyan arena lamps and broadcast overlays.
+    cv::inRange(hsv, cv::Scalar(0, 90, 70), cv::Scalar(35, 255, 255), warmLow);
+    cv::inRange(hsv, cv::Scalar(165, 90, 70), cv::Scalar(179, 255, 255), redHigh);
+    cv::bitwise_or(warmLow, redHigh, mask);
     const cv::Mat kernel3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
     const cv::Mat kernel7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
     cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel3);
@@ -71,24 +71,48 @@ std::vector<Candidate> findCandidates(const cv::Mat& mask, double frameArea) {
 std::optional<cv::Point2f> detectCenter(
     const std::vector<Candidate>& candidates,
     const cv::Size& size,
-    const std::optional<cv::Point2f>& previous) {
+    const std::optional<cv::Point2f>& previous,
+    bool* observed) {
+    *observed = false;
     if (candidates.empty()) return previous;
     const cv::Point2f expected = previous.value_or(cv::Point2f(size.width / 2.0F, size.height / 2.0F));
     double bestScore = std::numeric_limits<double>::infinity();
     std::optional<cv::Point2f> best;
     const double diagonal = std::hypot(size.width, size.height);
     for (const auto& candidate : candidates) {
+        // The illuminated R mark in both supplied videos is a compact,
+        // nearly round 8-45 pixel component.  Fan rings are much larger and
+        // thin blade strips are less circular.
+        if (candidate.area < 40.0 || candidate.area > 900.0) continue;
+        if (candidate.radius < 4.0F || candidate.radius > 24.0F) continue;
+        if (candidate.circularity < 0.40) continue;
+        double localSupportArea = 0.0;
+        int localSupportCount = 0;
+        for (const auto& neighbour : candidates) {
+            const double distance = cv::norm(neighbour.center - candidate.center);
+            if (distance > 20.0 && distance < 330.0) {
+                localSupportArea += neighbour.area;
+                ++localSupportCount;
+            }
+        }
+        // Broadcast HUD elements also contain small round orange marks.  A
+        // valid R mark must be supported by the illuminated fan assembly in
+        // its neighbourhood; isolated reticles are rejected.
+        if (localSupportCount < 1 || localSupportArea < 1800.0) continue;
         const double positionCost = cv::norm(candidate.center - expected) / diagonal;
+        const double areaCost = std::abs(candidate.area - 300.0) / 600.0;
         const double roundnessCost = 1.0 - std::clamp(candidate.circularity, 0.0, 1.0);
-        const double score = positionCost + 0.18 * roundnessCost + 0.000002 * candidate.area;
+        const double score = (previous ? 3.0 : 0.35) * positionCost
+                           + 0.35 * areaCost + 0.55 * roundnessCost;
         if (score < bestScore) {
             bestScore = score;
             best = candidate.center;
         }
     }
     if (!best) return previous;
-    if (previous && cv::norm(*best - *previous) > diagonal * 0.12) return previous;
-    if (previous) return *previous * 0.75F + *best * 0.25F;
+    *observed = true;
+    if (previous && cv::norm(*best - *previous) > diagonal * 0.18) return best;
+    if (previous) return *previous * 0.55F + *best * 0.45F;
     return best;
 }
 
@@ -101,7 +125,9 @@ std::vector<Candidate> bladeCandidates(
     std::vector<Candidate> blades;
     for (const auto& candidate : all) {
         const double distance = cv::norm(candidate.center - center);
-        if (distance >= minRadius && distance <= maxRadius) blades.push_back(candidate);
+        if (candidate.area >= 80.0 && distance >= minRadius && distance <= maxRadius) {
+            blades.push_back(candidate);
+        }
     }
     return blades;
 }
@@ -166,6 +192,8 @@ int main(int argc, char** argv) {
             outputDir + "/recognition_overlay.mp4", fps, cv::Size(width, height));
         auto binaryWriter = vision::makeMp4Writer(
             outputDir + "/binary_process.mp4", fps, cv::Size(width, height));
+        std::ofstream frameLog(outputDir + "/tracking_log.csv");
+        frameLog << "frame,status,target_id,center_x,center_y,target_x,target_y\n";
 
         TrackerState state;
         int frameIndex = 0;
@@ -175,10 +203,11 @@ int main(int argc, char** argv) {
         while (capture.read(frame)) {
             cv::Mat mask = makeColorMask(frame);
             auto candidates = findCandidates(mask, static_cast<double>(width) * height);
-            state.windmillCenter = detectCenter(candidates, frame.size(), state.windmillCenter);
+            bool centerObserved = false;
+            state.windmillCenter = detectCenter(candidates, frame.size(), state.windmillCenter, &centerObserved);
 
             std::optional<Candidate> target;
-            if (state.windmillCenter) {
+            if (state.windmillCenter && centerObserved) {
                 const auto blades = bladeCandidates(candidates, *state.windmillCenter, frame.size());
                 target = chooseTarget(blades, *state.windmillCenter, state);
                 if (!target && state.lostFrames >= reselectAfter && !blades.empty()) {
@@ -238,6 +267,19 @@ int main(int argc, char** argv) {
             cv::putText(binaryColor, cv::format("frame %d", frameIndex), cv::Point(24, 42),
                         cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 255, 255), 2, cv::LINE_AA);
             binaryWriter.write(binaryColor);
+            frameLog << frameIndex << ',' << status << ',' << state.targetId << ',';
+            if (state.windmillCenter && centerObserved) {
+                frameLog << state.windmillCenter->x << ',' << state.windmillCenter->y;
+            } else {
+                frameLog << ",";
+            }
+            frameLog << ',';
+            if (target) {
+                frameLog << target->center.x << ',' << target->center.y;
+            } else {
+                frameLog << ',';
+            }
+            frameLog << '\n';
             ++frameIndex;
         }
 
