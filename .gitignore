@@ -1,0 +1,11 @@
+build/
+cmake-build-*/
+.cache/
+*.o
+*.swp
+
+# 老师发放的原始视频可能较大；需要本地放置，但不强制提交到 Git。
+resources/task_2.mp4
+resources/task_3.mp4
+resources/task_4.mp4
+

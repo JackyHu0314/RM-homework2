@@ -1,0 +1,24 @@
+%YAML:1.0
+task1:
+  mean_kernel: 5
+  gaussian_kernel: 5
+  gaussian_sigma: 1.5
+  median_kernel: 5
+  red_h_low_1: 0
+  red_h_high_1: 12
+  red_h_low_2: 165
+  red_h_high_2: 179
+  min_saturation: 70
+  min_value: 50
+  morphology_kernel: 5
+  min_contour_area: 300.0
+task2:
+  cyan_h_low: 78
+  cyan_h_high: 105
+  min_saturation: 80
+  min_value: 80
+  angular_speed_smoothing_window: 11
+task3:
+  lost_tolerance_frames: 12
+  reselect_after_frames: 18
+
