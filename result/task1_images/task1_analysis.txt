@@ -1,0 +1,16 @@
+input=resources/test_image.jpg
+size=1280x853
+mean_kernel=5x5
+gaussian_kernel=5x5 sigma=1.5
+median_kernel=5
+red_hsv=[0,12]U[165,179], S=[70,255], V=[50,255]
+morphology_kernel=ellipse 5x5
+minimum_contour_area=300 px^2
+accepted_contours=7
+area_1=425.0 px^2
+area_2=6777.0 px^2
+area_3=563.5 px^2
+area_4=1053.0 px^2
+area_5=391.0 px^2
+area_6=54042.0 px^2
+area_7=267646.5 px^2
